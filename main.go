@@ -21,10 +21,11 @@ import (
 //---- sunucu ayarları -----
 var cacheImages = true // orijinal resim önbelleğini açar/kapatır
 var cacheResponses = false  // değişiklik yapılmış resim önbelleğini açar/kapatır
+var remoteUrl = "http://bihap.com/img/"
+var readLocal = false
+var serverAddr = ":8080"
 
-
-
-var resp = []byte("<h1>This is response</h1>")
+var resp = []byte("<h1>Hello World</h1>")
 var buffer = new(bytes.Buffer)
 var imageCache = make(map[string]image.Image)
 var respCache = make(map[string][]byte)
@@ -35,33 +36,34 @@ func main() {
 
 	r := fasthttprouter.New()
 
-	fs := &fasthttp.FS{
-		Root:               "./public",
-		IndexNames:         []string{"index.html"},
-		GenerateIndexPages: true,
-		Compress:           false,
-		AcceptByteRange:    false,
-	}
+	//fs := &fasthttp.FS{
+	//	Root:               "./public",
+	//	IndexNames:         []string{"index.html"},
+	//	GenerateIndexPages: true,
+	//	Compress:           false,
+	//	AcceptByteRange:    false,
+	//}
 
-	fsHandler := fs.NewRequestHandler()
+	//fsHandler := fs.NewRequestHandler()
 
 	//r.GET("/", fileServing)
 
 	r.GET("/", func(ctx *fasthttp.RequestCtx){
 		ctx.Redirect("/home", 301)
 	})
-	r.GET("/home/*filepath", fsHandler)
+	//r.GET("/home/*filepath", fsHandler)
 	r.GET("/path", fhttpHandler)
 	r.GET("/img/:fileName", imagingHandler)
 	r.GET("/img", imagingHandler)
 
-	//imageCache["flowers.png"] = loadImage("public/images/flowers.png")
-	//imageCache["pic04.jpg"] = loadImage("public/images/pic04.jpg")
+	r.NotFound = errorHandler
 
 	rand.Seed(time.Now().UTC().UnixNano())
+	fasthttp.ListenAndServe(serverAddr, r.Handler)
+}
 
-	fasthttp.ListenAndServe(":80", r.Handler)
-
+func errorHandler( ctx *fasthttp.RequestCtx )  {
+	log.Print(ctx.Request.URI())
 }
 
 func randInt() uint8 {
@@ -94,13 +96,15 @@ func fhttpHandler(ctx *fasthttp.RequestCtx) {
 func imagingHandler(ctx *fasthttp.RequestCtx){
 	ctx.SetStatusCode(200) // her zaman 200 kodu
 
+	//log.Print(ctx.Request.URI())
+
 	uri := ctx.URI().String()
 
 	var exists bool // önbellek kontrolü için (map içinde var mı yok mu) gerekli değişken
 
 	if cacheResponses {
+		// TODO: use mutex
 		// NOT: bu yöntem mantıklı değil. bir çok farklı istekde RAM kullanımı çok artar
-		// Fakat benchmarklarda harika performans artışı oluyor :)
 
 		var respImg []byte
 		respImg, exists = respCache[uri]
@@ -148,15 +152,21 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 			}
 
 			if !lockImgCache {
+				// TODO: use mutex
 				lockImgCache = true
 				imageCache[fileName] = img
-				log.Printf("writed %s to image cache", fileName)
+				//log.Printf("writed %s to image cache", fileName)
 				lockImgCache = false
 			}
 
 		}
 	} else {
-		img, _ = loadImage(fileName)
+		img, err = loadImage(fileName)
+		if err != nil {
+			ctx.SetContentType("text/html; charset=utf-8")
+			ctx.Write([]byte("<b>Hata:</b> Dosya bulunamadı."))
+			return
+		}
 	}
 
 	colorStr := "" // gray, red, blue, random
@@ -170,27 +180,27 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 	isYExists := false
 
 
-	if ctx.QueryArgs().Has("x") {
+	if ctx.QueryArgs().Has("width") {
 		isXExists = true
 
 		// ?x=54 vey ?x=asd gibi bir şey girilmiş, değeri okuyup integer'a çevirelim
-		x, err = strconv.Atoi(string(ctx.QueryArgs().Peek("x")))
+		x, err = strconv.Atoi(string(ctx.QueryArgs().Peek("width")))
 
 		// x bir sayı değilse veya 1 den küçük 2000den büyükse
-		if err != nil || x < 1 || x > 2000 {
+		if err != nil || x < 1 || x > 20000 {
 			ctx.SetContentType("text/html; charset=utf-8")
 			ctx.Write([]byte("<b>Hata:</b> Genişlik (x) 1 ile 2000 arasında bir tam sayı olmalıdır"))
 			return
 		}
 	}
 
-	if ctx.QueryArgs().Has("y") {
+	if ctx.QueryArgs().Has("height") {
 		isYExists = true
 
 		// ?y=154 vey ?x=afdv gibi bir şey girilmiş, değeri okuyup integer'a çevirelim
-		y, err = strconv.Atoi(string(ctx.QueryArgs().Peek("y")))
+		y, err = strconv.Atoi(string(ctx.QueryArgs().Peek("height")))
 
-		if err != nil || y < 1 || y > 2000 {
+		if err != nil || y < 1 || y > 20000 {
 			ctx.SetContentType("text/html; charset=utf-8")
 			ctx.Write([]byte("<b>Hata:</b> Yükseklik (y) 1 ile 2000 arasında bir tam sayı olmalıdır."))
 			return
@@ -199,7 +209,7 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 
 	// tam olarak verilen boyuta mı çevrilecek?
 	// orijinal resim 1000x250 ise x=100 y=100 ise, crop url'ye girilmemişse
-	// çıktı 100x50 olur (oran bozulmaz). Crop url'de varsa çıktı 100x100 olur
+	// çıktı 100x25 olur (oran bozulmaz). Crop url'de varsa çıktı 100x100 olur
 	if ctx.QueryArgs().Has("crop") {
 		crop = true
 	}
@@ -215,7 +225,7 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 	}
 
 	if ctx.QueryArgs().Has("color") {
-		colorStr = string(ctx.QueryArgs().Peek("color"))
+		colorStr = strings.ToLower(string(ctx.QueryArgs().Peek("color")))
 	}
 
 	if ctx.QueryArgs().Has("blur") {
@@ -238,15 +248,22 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 		return
 	}
 
+	//log.Printf("x: %s - y: %s", img.Bounds().Dx(), img.Bounds().Dy())
+
 	if isXExists || isYExists {
 
-		// x büyükse y sabit tutulur, y büyükse x sabit tutulur.
-		// bu sayede orijinal resmin en/boy oranı değişmez.
-		if x > y {
+		xResizeRatio := img.Bounds().Dx() / x
+		yResizeRatio := img.Bounds().Dy() / y
+
+		//x'deki değişim miktarı y'deki değişim miktarından büyükse x'e göre yeniden boyutlandırılır
+		// orijinal : 	600x400  	600x400
+		// istenilen : 	300x100 	100x100
+		// çıktı :		300x200		150x100
+		if xResizeRatio > yResizeRatio {
 			// imaging.NearestNeighbor en hızlı yeniden boyutlandırma yöntemidir.
-			img = imaging.Resize(img, x, 0, imaging.NearestNeighbor)
-		} else {
 			img = imaging.Resize(img, 0, y, imaging.NearestNeighbor)
+		} else {
+			img = imaging.Resize(img, x, 0, imaging.NearestNeighbor)
 		}
 	}
 
@@ -266,17 +283,17 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 
 				//c değişkeni orijinal pixelin rengini tutar.
 				return color.NRGBA{c.R, 0, 0, c.A}
-				})
+			})
 
 		} else if colorStr == "green" {
 			img = imaging.AdjustFunc( img, func(c color.NRGBA) color.NRGBA {
 				return color.NRGBA{0, c.G, 0, c.A}
-				})
+			})
 
 		} else if colorStr == "blue" {
 			img = imaging.AdjustFunc( img, func(c color.NRGBA) color.NRGBA {
 				return color.NRGBA{0, 0, c.B, c.A}
-				})
+			})
 
 		} else {
 			r1 := randInt()
@@ -315,7 +332,7 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 				}
 
 				return color.NRGBA{r, g, b, c.A}
-				})
+			})
 			isRand = true
 		}
 
@@ -347,14 +364,14 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 
 	resp = buffer.Bytes()
 
-	// yanırlar önbelleğe alınacaksa ve önbelleğe başka bir istek içinden
+	// yanıtlar önbelleğe alınacaksa ve önbelleğe başka bir istek içinden
 	// erişilmiyorsa yazma işlemi yapılır. rastgele oluşturulan resimler asla önbelleğe alınmaz
 	if cacheResponses && !isRand && !lockRespCache{
 		// önbelleğe yazacağız. farklı threadlerden aynı anda yazma
 		// işlemi yapmamak için bu kiliti aktifleştirelim
 		lockRespCache = true
 		respCache[uri] = resp
-		log.Printf("writed %s to response cache", uri)
+		//log.Printf("writed %s to response cache", uri)
 		lockRespCache = false
 		//go writeToCache(uri, resp)
 	}
@@ -375,13 +392,21 @@ func loadImage(filename string) (image.Image, error){
 		response, _ := http.Get(filename)
 		defer response.Body.Close()
 		img, _, err = image.Decode(response.Body)
+	} else if !readLocal {
+		response, _ := http.Get(remoteUrl + filename)
+		defer response.Body.Close()
+		img, _, err = image.Decode(response.Body)
+		if err != nil {
+			log.Printf("Remote image fetch failed: %v", err)
+			return nil, err
+		}
+		//log.Printf("opened image from url: %s%s", remoteUrl, filename)
 	} else {
 
 		f, err := os.Open("public/images/" + filename)
 		if err != nil {
 			log.Printf("os.Open failed: %v", err)
 			return nil, err
-
 		}
 
 		img, _, err = image.Decode(f)
