@@ -175,7 +175,6 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 	y := 0  // yükseklik, 1 - 2000
 	quality := 75 // resim kalitesi, 1 - 100
 	blur := 0.0  // bulanıklık, 0 - 25
-	isRand := false  //rastgele renk mi?
 	isXExists := false
 	isYExists := false
 
@@ -295,45 +294,6 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 				return color.NRGBA{0, 0, c.B, c.A}
 			})
 
-		} else {
-			r1 := randInt()
-			r2 := randInt()
-
-			// NOT: önemsiz bir fantezi
-			img = imaging.AdjustFunc( img, func(c color.NRGBA) color.NRGBA {
-				// c.R, c.G, C.B değişkenleri pixelin orijinal renkleridir
-				// her bir pixelin son renk durumu r, g, b değişkenindedir
-				var r, g, b uint8
-
-				if r1 < 85 {
-					if r1 < 42 {
-						r = c.R - r2
-					} else {
-						r = c.R + r2
-					}
-					g = c.G
-					b = c.B
-				} else if r1 < 170 {
-					if r1 < 128 {
-						g = c.R - r2
-					} else {
-						g = c.R + r2
-					}
-					r = c.R
-					b = c.B
-				} else {
-					if r1 < 213 {
-						b = c.B - r2
-					} else {
-						b = c.B + r2
-					}
-					r = c.R
-					g = c.G
-				}
-
-				return color.NRGBA{r, g, b, c.A}
-			})
-			isRand = true
 		}
 
 
@@ -366,7 +326,7 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 
 	// yanıtlar önbelleğe alınacaksa ve önbelleğe başka bir istek içinden
 	// erişilmiyorsa yazma işlemi yapılır. rastgele oluşturulan resimler asla önbelleğe alınmaz
-	if cacheResponses && !isRand && !lockRespCache{
+	if cacheResponses && !lockRespCache{
 		// önbelleğe yazacağız. farklı threadlerden aynı anda yazma
 		// işlemi yapmamak için bu kiliti aktifleştirelim
 		lockRespCache = true
