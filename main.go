@@ -113,7 +113,6 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 	}
 
 	//  /img/:fileName  ->  /img/hello.png  -> fileName = hello.png
-
 	var fileName string
 	if ctx.UserValue("fileName") != nil {
 		// bilgisayarımızdaki dosyayı açacağız
@@ -160,14 +159,13 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 		}
 	}
 
-	colorStr := "" // gray, red, blue, random
-
 	x := 0  // genişlik, 1 - 2000
 	y := 0  // yükseklik, 1 - 2000
 
 	isXExists := false
 	isYExists := false
 
+	colorStr := ""
 
 	if ctx.QueryArgs().Has("width") {
 		isXExists = true
@@ -176,7 +174,7 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 		x, err = strconv.Atoi(string(ctx.QueryArgs().Peek("width")))
 
 		// x bir sayı değilse veya 1 den küçük 2000den büyükse
-		if err != nil || x < 1 || x > 20000 {
+		if err != nil || x < 1 || x > 2000 {
 			ctx.SetContentType("text/html; charset=utf-8")
 			ctx.Write([]byte("<b>Hata:</b> Genişlik (x) 1 ile 2000 arasında bir tam sayı olmalıdır"))
 			return
@@ -189,7 +187,7 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 		// ?y=154 vey ?x=afdv gibi bir şey girilmiş, değeri okuyup integer'a çevirelim
 		y, err = strconv.Atoi(string(ctx.QueryArgs().Peek("height")))
 
-		if err != nil || y < 1 || y > 20000 {
+		if err != nil || y < 1 || y > 2000 {
 			ctx.SetContentType("text/html; charset=utf-8")
 			ctx.Write([]byte("<b>Hata:</b> Yükseklik (y) 1 ile 2000 arasında bir tam sayı olmalıdır."))
 			return
@@ -233,16 +231,6 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 				return color.NRGBA{c.R, 0, 0, c.A}
 			})
 
-		} else if colorStr == "green" {
-			img = imaging.AdjustFunc( img, func(c color.NRGBA) color.NRGBA {
-				return color.NRGBA{0, c.G, 0, c.A}
-			})
-
-		} else if colorStr == "blue" {
-			img = imaging.AdjustFunc( img, func(c color.NRGBA) color.NRGBA {
-				return color.NRGBA{0, 0, c.B, c.A}
-			})
-
 		}
 
 
@@ -263,10 +251,6 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 		log.Println("unable to encode image.")
 	}
 
-
-	//ctx.SetContentType("text/html; charset=utf-8")
-	//ctx.Write([]byte("Resim oluşturuldu!"))
-
 	resp = buffer.Bytes()
 
 	// yanıtlar önbelleğe alınacaksa ve önbelleğe başka bir istek içinden
@@ -280,7 +264,6 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 		lockRespCache = false
 		//go writeToCache(uri, resp)
 	}
-
 
 	ctx.SetContentType("image/jpeg")
 	ctx.Write(resp)
