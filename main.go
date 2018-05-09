@@ -161,7 +161,7 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 	}
 
 	colorStr := "" // gray, red, blue, random
-	crop := false
+
 	x := 0  // genişlik, 1 - 2000
 	y := 0  // yükseklik, 1 - 2000
 
@@ -196,25 +196,9 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 		}
 	}
 
-	// tam olarak verilen boyuta mı çevrilecek?
-	// orijinal resim 1000x250 ise x=100 y=100 ise, crop url'ye girilmemişse
-	// çıktı 100x25 olur (oran bozulmaz). Crop url'de varsa çıktı 100x100 olur
-	if ctx.QueryArgs().Has("crop") {
-		crop = true
-	}
 
 	if ctx.QueryArgs().Has("color") {
 		colorStr = strings.ToLower(string(ctx.QueryArgs().Peek("color")))
-	}
-
-	//log.Printf("x=%d y=%d", x, y)
-
-
-	// resim kırpılacaksa hem x hem de y değeri girilmiş olmalıdır
-	if (isXExists != isYExists) && crop {
-		ctx.SetContentType("text/html; charset=utf-8")
-		ctx.Write([]byte("<b>Hata:</b> Kırpma işlemi için x ile y değeri birlikte verilmelidir."))
-		return
 	}
 
 	//log.Printf("x: %s - y: %s", img.Bounds().Dx(), img.Bounds().Dy())
@@ -234,11 +218,6 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 		} else {
 			img = imaging.Resize(img, x, 0, imaging.NearestNeighbor)
 		}
-	}
-
-	if crop {
-		//resmi ortalayarak kırpalım
-		img = imaging.CropAnchor(img, x, y, imaging.Center)
 	}
 
 	if colorStr != "" {
