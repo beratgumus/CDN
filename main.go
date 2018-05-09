@@ -86,11 +86,10 @@ func fhttpHandler(ctx *fasthttp.RequestCtx) {
 // http://localhost/img/hello.png?y=300
 // http://localhost/img/hello.png?x=100&y=300
 // http://localhost/img/hello.png?x=100&y=300&crop
-// http://localhost/img/hello.png?x=200&y=300&crop&color=gray&quality=50&blur=3.5
 //
 // http://localhost/img?url=https://bekiruzun.com/images/post/localhost.jpg&x=300&y=200&quality=70
 //
-// parametreler: x, y, color, crop, quality, blur, url
+// parametreler: x, y, color, crop, quality, url
 //
 // resmi, verilen parametrelere göre şekillendiren fonksiyon
 func imagingHandler(ctx *fasthttp.RequestCtx){
@@ -174,7 +173,6 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 	x := 0  // genişlik, 1 - 2000
 	y := 0  // yükseklik, 1 - 2000
 	quality := 75 // resim kalitesi, 1 - 100
-	blur := 0.0  // bulanıklık, 0 - 25
 	isXExists := false
 	isYExists := false
 
@@ -225,16 +223,6 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 
 	if ctx.QueryArgs().Has("color") {
 		colorStr = strings.ToLower(string(ctx.QueryArgs().Peek("color")))
-	}
-
-	if ctx.QueryArgs().Has("blur") {
-		blur, err = strconv.ParseFloat(string(ctx.QueryArgs().Peek("blur")), 64)
-
-		if err != nil || blur <= 0 || blur > 50 {
-			ctx.SetContentType("text/html; charset=utf-8")
-			ctx.Write([]byte("<b>Hata:</b> Bulanıklık 0 ile 50 arasında bir sayı olmalıdır."))
-			return
-		}
 	}
 
 	//log.Printf("x=%d y=%d", x, y)
@@ -300,10 +288,6 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 		//colorFilter := imaging.New(1000, 1000, color.Gray{} )
 		//img = imaging.OverlayCenter(img, colorFilter, 0.5)
 
-	}
-
-	if blur != 0.0 {
-		img = imaging.Blur(img, blur)
 	}
 
 	//err = imaging.Save(img, "public/images/out/flowers.jpg")
