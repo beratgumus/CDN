@@ -31,6 +31,7 @@ var imageCache = make(map[string]image.Image)
 var respCache = make(map[string][]byte)
 var lockRespCache = false
 var lockImgCache = false
+var quality = 75 // resim kalitesi, 1 - 100
 
 func main() {
 
@@ -66,9 +67,6 @@ func errorHandler( ctx *fasthttp.RequestCtx )  {
 	log.Print(ctx.Request.URI())
 }
 
-func randInt() uint8 {
-	return uint8(rand.Intn(255))
-}
 
 func fileServing(ctx *fasthttp.RequestCtx) {
 	fasthttp.ServeFile(ctx, "./public")
@@ -87,7 +85,7 @@ func fhttpHandler(ctx *fasthttp.RequestCtx) {
 // http://localhost/img/hello.png?x=100&y=300
 // http://localhost/img/hello.png?x=100&y=300&crop
 //
-// parametreler: x, y, color, crop, quality
+// parametreler: x, y, color, crop
 //
 // resmi, verilen parametrelere göre şekillendiren fonksiyon
 func imagingHandler(ctx *fasthttp.RequestCtx){
@@ -166,7 +164,7 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 	crop := false
 	x := 0  // genişlik, 1 - 2000
 	y := 0  // yükseklik, 1 - 2000
-	quality := 75 // resim kalitesi, 1 - 100
+
 	isXExists := false
 	isYExists := false
 
@@ -203,16 +201,6 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 	// çıktı 100x25 olur (oran bozulmaz). Crop url'de varsa çıktı 100x100 olur
 	if ctx.QueryArgs().Has("crop") {
 		crop = true
-	}
-
-	if ctx.QueryArgs().Has("quality") {
-		quality, err = strconv.Atoi(string(ctx.QueryArgs().Peek("quality")))
-
-		if err != nil || quality < 1 || quality > 100 {
-			ctx.SetContentType("text/html; charset=utf-8")
-			ctx.Write([]byte("<b>Hata:</b> Çözünürlük 1 ile 100 arasında bir tam sayı olmalıdır."))
-			return
-		}
 	}
 
 	if ctx.QueryArgs().Has("color") {
