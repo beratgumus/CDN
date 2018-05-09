@@ -87,9 +87,7 @@ func fhttpHandler(ctx *fasthttp.RequestCtx) {
 // http://localhost/img/hello.png?x=100&y=300
 // http://localhost/img/hello.png?x=100&y=300&crop
 //
-// http://localhost/img?url=https://bekiruzun.com/images/post/localhost.jpg&x=300&y=200&quality=70
-//
-// parametreler: x, y, color, crop, quality, url
+// parametreler: x, y, color, crop, quality
 //
 // resmi, verilen parametrelere göre şekillendiren fonksiyon
 func imagingHandler(ctx *fasthttp.RequestCtx){
@@ -122,10 +120,6 @@ func imagingHandler(ctx *fasthttp.RequestCtx){
 	if ctx.UserValue("fileName") != nil {
 		// bilgisayarımızdaki dosyayı açacağız
 		fileName = ctx.UserValue("fileName").(string)
-	} else if ctx.QueryArgs().Has("url"){
-		// uzak bir sunucudaki resmi açacağız
-		fileName = string(ctx.QueryArgs().Peek("url"))
-		//log.Printf("url=%s", fileName)
 	} else {
 		ctx.SetContentType("text/html; charset=utf-8")
 		ctx.Write([]byte("<b>Hata:</b> Resim dosyası seçilmedi/girilmedi."))
